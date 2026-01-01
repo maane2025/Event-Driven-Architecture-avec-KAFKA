@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Kafka Streams Analytics</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/smoothie/1.34.0/smoothie.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .chart-container {
+            margin-top: 30px;
+        }
+        .legend {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 10px;
+        }
+        .legend-item {
+            margin: 0 15px;
+            display: flex;
+            align-items: center;
+        }
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            margin-right: 5px;
+        }
+        .p1-color {
+            background-color: rgba(255, 0, 0, 0.5);
+        }
+        .p2-color {
+            background-color: rgba(0, 0, 255, 0.5);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Kafka Streams Analytics Dashboard</h1>
+        
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-color p1-color"></div>
+                <span>Page P1</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color p2-color"></div>
+                <span>Page P2</span>
+            </div>
+        </div>
+        
+        <div class="chart-container">
+            <canvas id="chart" width="1000" height="400"></canvas>
+        </div>
+    </div>
+
+    <script>
+        // Setup smoothie chart
+        const chart = new SmoothieChart({
+            millisPerPixel: 50,
+            grid: { 
+                strokeStyle: 'rgba(119,119,119,0.1)', 
+                fillStyle: 'transparent',
+                verticalSections: 5,
+                borderVisible: false
+            },
+            labels: { fillStyle: '#999999' },
+            tooltip: true,
+            maxValue: 15,
+            minValue: 0
+        });
+        
+        chart.streamTo(document.getElementById("chart"), 1000);
+        
+        // Create time series for each page
+        const p1Series = new TimeSeries();
+        const p2Series = new TimeSeries();
+        
+        // Add time series to chart
+        chart.addTimeSeries(p1Series, {
+            strokeStyle: 'rgba(255, 0, 0, 1)',
+            fillStyle: 'rgba(255, 0, 0, 0.3)',
+            lineWidth: 3
+        });
+        
+        chart.addTimeSeries(p2Series, {
+            strokeStyle: 'rgba(0, 0, 255, 1)',
+            fillStyle: 'rgba(0, 0, 255, 0.3)',
+            lineWidth: 3
+        });
+        
+        // Connect to SSE stream
+        const eventSource = new EventSource("/analytics");
+        
+        eventSource.onmessage = function(event) {
+            const analyticsData = JSON.parse(event.data);
+            const now = new Date().getTime();
+            
+            // Get values for each page, default to 0 if undefined
+            const p1Value = analyticsData["P1"] || 0;
+            const p2Value = analyticsData["P2"] || 0;
+            
+            // Add values to time series
+            p1Series.append(now, p1Value);
+            p2Series.append(now, p2Value);
+            
+            console.log(`Received data: P1=${p1Value}, P2=${p2Value}`);
+        };
+        
+        eventSource.onerror = function() {
+            console.error("EventSource error, attempting to reconnect...");
+        };
+    </script>
+</body>
+</html>
